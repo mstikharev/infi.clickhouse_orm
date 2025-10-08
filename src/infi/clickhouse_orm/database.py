@@ -9,6 +9,7 @@ from math import ceil
 import datetime
 from string import Template
 import pytz
+from urllib.parse import urlparse, urlunparse, parse_qsl, urlencode
 
 import logging
 logger = logging.getLogger('clickhouse_orm')
@@ -87,7 +88,8 @@ class Database(object):
 
     def __init__(self, db_name, db_url='http://localhost:8123/',
                  username=None, password=None, readonly=False, autocreate=True,
-                 timeout=60, verify_ssl_cert=True, log_statements=False):
+                 timeout=60, verify_ssl_cert=True, log_statements=False,
+                 ca_cert=None, client_cert=None, client_key=None):
         '''
         Initializes a database instance. Unless it's readonly, the database will be
         created on the ClickHouse server if it does not already exist.
@@ -101,13 +103,29 @@ class Database(object):
         - `timeout`: the connection timeout in seconds.
         - `verify_ssl_cert`: whether to verify the server's certificate when connecting via HTTPS.
         - `log_statements`: when True, all database statements are logged.
+        - `ca_cert`: path to a CA bundle file for TLS verification (overrides verify_ssl_cert).
+        - `client_cert`: path to a client certificate file (PEM) for mTLS.
+        - `client_key`: path to a client private key file (PEM) for mTLS.
         '''
         self.db_name = db_name
-        self.db_url = db_url
+        cleaned_url, url_tls = self._parse_tls_from_url(db_url)
+        self.db_url = cleaned_url
         self.readonly = False
         self.timeout = timeout
         self.request_session = requests.Session()
-        self.request_session.verify = verify_ssl_cert
+        if url_tls.get('verify_ssl_cert') is not None:
+            verify_ssl_cert = url_tls['verify_ssl_cert']
+        ca_cert = ca_cert or url_tls.get('ca_cert')
+        client_cert = client_cert or url_tls.get('client_cert')
+        client_key = client_key or url_tls.get('client_key')
+        if ca_cert:
+            self.request_session.verify = ca_cert
+        else:
+            self.request_session.verify = verify_ssl_cert
+        if client_cert and client_key:
+            self.request_session.cert = (client_cert, client_key)
+        elif client_cert:
+            self.request_session.cert = client_cert
         if username:
             self.request_session.auth = (username, password or '')
         self.log_statements = log_statements
@@ -128,6 +146,37 @@ class Database(object):
         self.has_codec_support = self.server_version >= (19, 1, 16)
         # Version 19.0 and above support LowCardinality
         self.has_low_cardinality_support = self.server_version >= (19, 0)
+
+    @staticmethod
+    def _str_to_bool(value):
+        if isinstance(value, bool):
+            return value
+        if value is None:
+            return None
+        v = str(value).strip().lower()
+        if v in ('1', 'true', 'yes', 'on'):
+            return True
+        if v in ('0', 'false', 'no', 'off'):
+            return False
+        return None
+
+    def _parse_tls_from_url(self, db_url):
+        parsed = urlparse(db_url)
+        query_pairs = parse_qsl(parsed.query, keep_blank_values=True)
+        tls_keys = {'verify_ssl_cert', 'ca_cert', 'client_cert', 'client_key'}
+        tls_params = {}
+        cleaned_pairs = []
+        for k, v in query_pairs:
+            if k in tls_keys:
+                if k == 'verify_ssl_cert':
+                    tls_params[k] = self._str_to_bool(v)
+                else:
+                    tls_params[k] = v
+            else:
+                cleaned_pairs.append((k, v))
+        cleaned_query = urlencode(cleaned_pairs)
+        cleaned_url = urlunparse(parsed._replace(query=cleaned_query))
+        return cleaned_url, tls_params
 
     def create_database(self):
         '''
