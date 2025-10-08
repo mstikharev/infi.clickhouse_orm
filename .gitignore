@@ -19,7 +19,6 @@
 bin/
 build/
 dist/
-setup.py
 
 # buildout
 buildout.in.cfg

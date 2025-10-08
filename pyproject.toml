@@ -1,0 +1,48 @@
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "infi.clickhouse_orm"
+version = "2.0.0"
+authors = [
+    {name = "Infinidat"}
+]
+description = "A Python library for working with the ClickHouse database"
+readme = "README.md"
+license = {text = "BSD"}
+requires-python = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*"
+classifiers = [
+    "Intended Audience :: Developers",
+    "Intended Audience :: System Administrators",
+    "License :: OSI Approved :: BSD License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 2.7",
+    "Programming Language :: Python :: 3.4",
+    "Programming Language :: Python :: 3.5",
+    "Programming Language :: Python :: 3.6",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Database"
+]
+dependencies = [
+    "iso8601 >= 0.1.12",
+    "pytz",
+    "requests",
+    "setuptools"
+]
+
+[project.urls]
+Homepage = "https://github.com/Infinidat/infi.clickhouse_orm"
+Repository = "https://github.com/Infinidat/infi.clickhouse_orm"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
